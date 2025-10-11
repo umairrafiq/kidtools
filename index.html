@@ -18,24 +18,61 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
+            overflow-x: hidden;
         }
 
         .container {
             background: white;
-            border-radius: 30px;
-            padding: 40px;
-            max-width: 600px;
+            border-radius: 20px;
+            padding: 20px;
+            max-width: 900px;
             width: 100%;
+            max-height: 95vh;
+            overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
 
         h1 {
             color: #667eea;
             text-align: center;
-            font-size: 2.5em;
-            margin-bottom: 30px;
+            font-size: 1.8em;
+            margin-bottom: 15px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Laptop/Desktop (wider layout) */
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            
+            .container {
+                padding: 30px;
+                border-radius: 30px;
+            }
+            
+            h1 {
+                font-size: 2.5em;
+                margin-bottom: 25px;
+            }
+            
+            .difficulty-buttons {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .difficulty-btn {
+                min-width: auto;
+            }
+        }
+
+        /* Large Desktop */
+        @media (min-width: 1200px) {
+            .difficulty-buttons {
+                grid-template-columns: repeat(4, 1fr);
+            }
         }
 
         .loading {
@@ -46,7 +83,13 @@
         }
 
         .user-section {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .user-section {
+                margin-bottom: 30px;
+            }
         }
 
         .user-input {
@@ -57,22 +100,38 @@
 
         input[type="text"], input[type="number"] {
             flex: 1;
-            padding: 15px;
+            padding: 12px;
             border: 3px solid #667eea;
-            border-radius: 15px;
-            font-size: 1.1em;
+            border-radius: 12px;
+            font-size: 1em;
             font-family: 'Comic Sans MS', cursive;
         }
 
+        @media (min-width: 768px) {
+            input[type="text"], input[type="number"] {
+                padding: 15px;
+                border-radius: 15px;
+                font-size: 1.1em;
+            }
+        }
+
         button {
-            padding: 15px 30px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 15px;
-            font-size: 1.1em;
+            border-radius: 12px;
+            font-size: 1em;
             font-weight: bold;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             font-family: 'Comic Sans MS', cursive;
+        }
+
+        @media (min-width: 768px) {
+            button {
+                padding: 15px 30px;
+                border-radius: 15px;
+                font-size: 1.1em;
+            }
         }
 
         button:hover {
@@ -91,7 +150,13 @@
         }
 
         .difficulty-section {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .difficulty-section {
+                margin-bottom: 30px;
+            }
         }
 
         .difficulty-buttons {
@@ -118,10 +183,17 @@
         }
 
         .problem {
-            font-size: 3em;
+            font-size: 2.5em;
             color: #667eea;
-            margin: 30px 0;
+            margin: 20px 0;
             font-weight: bold;
+        }
+
+        @media (min-width: 768px) {
+            .problem {
+                font-size: 3.5em;
+                margin: 30px 0;
+            }
         }
 
         .answer-input {
@@ -154,9 +226,16 @@
         }
 
         .score {
-            font-size: 2em;
+            font-size: 1.5em;
             color: #00b894;
-            margin: 20px 0;
+            margin: 15px 0;
+        }
+
+        @media (min-width: 768px) {
+            .score {
+                font-size: 2em;
+                margin: 20px 0;
+            }
         }
 
         .stats {
@@ -178,8 +257,15 @@
         }
 
         .emoji {
-            font-size: 3em;
-            margin: 20px 0;
+            font-size: 2.5em;
+            margin: 15px 0;
+        }
+
+        @media (min-width: 768px) {
+            .emoji {
+                font-size: 3em;
+                margin: 20px 0;
+            }
         }
 
         .user-stats {
@@ -221,8 +307,14 @@
         }
 
         .history-section, .standings-section {
-            max-height: 70vh;
+            max-height: 60vh;
             overflow-y: auto;
+        }
+
+        @media (min-width: 768px) {
+            .history-section, .standings-section {
+                max-height: 70vh;
+            }
         }
 
         .history-item {
@@ -320,8 +412,15 @@
         }
 
         .podium-rank {
-            font-size: 3em;
-            margin-bottom: 10px;
+            font-size: 2em;
+            margin-bottom: 8px;
+        }
+
+        @media (min-width: 768px) {
+            .podium-rank {
+                font-size: 3em;
+                margin-bottom: 10px;
+            }
         }
 
         .podium-name {

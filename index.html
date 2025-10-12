@@ -230,6 +230,7 @@
             </div>
             
             <h1>🌟 Math Stars Challenge 🌟</h1>
+            <div id="teacherBanner" class="hidden" style="text-align: center; background: linear-gradient(135deg, #f093fb, #f5576c); color: white; padding: 15px; border-radius: 15px; margin-bottom: 20px; font-size: 1.3em; font-weight: bold;"></div>
             
             <div id="userSection" class="user-section">
                 <div class="user-input">
@@ -458,6 +459,13 @@
                 });
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
+                
+                // Show teacher banner if teacher parameter exists
+                if (teacherName) {
+                    const banner = document.getElementById('teacherBanner');
+                    banner.textContent = `🏫 Class of ${teacherName}`;
+                    banner.classList.remove('hidden');
+                }
             } catch (error) {
                 console.error('Error loading users:', error);
                 document.getElementById('loading').innerHTML = '<h2>⚠️ Connection Error</h2><p>Please check your internet connection and refresh the page.</p>';

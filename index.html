@@ -764,54 +764,99 @@
                 document.getElementById('teacherFilter').textContent = ' - All Students';
             }
             
-            const standings = filteredUsers.map(user => {
-                const last5 = user.tests.slice(-5);
-                const avg = Math.round(last5.reduce((acc, test) => acc + test.percentage, 0) / last5.length);
-                return {
-                    name: user.name,
-                    teacher: user.teacher || 'No Teacher',
-                    average: avg,
-                    totalTests: user.tests.length
-                };
-            }).sort((a, b) => b.average - a.average);
+            // Group tests by type (operation + difficulty)
+            const testTypes = {};
+            const operationLabels = {
+                'addition': 'Addition',
+                'subtraction': 'Subtraction',
+                'multiplication': 'Multiplication',
+                'division': 'Division'
+            };
+            const difficultyLabels = {
+                '1digit': '1-Digit',
+                '2digit': '2-Digit',
+                '3digit': '3-Digit'
+            };
+            
+            filteredUsers.forEach(user => {
+                user.tests.forEach(test => {
+                    const testType = `${test.operation}_${test.difficulty}`;
+                    if (!testTypes[testType]) {
+                        testTypes[testType] = {
+                            operation: test.operation,
+                            difficulty: test.difficulty,
+                            students: {}
+                        };
+                    }
+                    
+                    if (!testTypes[testType].students[user.name]) {
+                        testTypes[testType].students[user.name] = {
+                            name: user.name,
+                            teacher: user.teacher || 'No Teacher',
+                            tests: [],
+                            totalScore: 0
+                        };
+                    }
+                    
+                    testTypes[testType].students[user.name].tests.push(test);
+                    testTypes[testType].students[user.name].totalScore += test.percentage;
+                });
+            });
 
             const podiumDiv = document.getElementById('standingsPodium');
-            podiumDiv.innerHTML = '';
+            podiumDiv.innerHTML = '<p style="text-align: center; font-size: 1.1em; color: #667eea;">Select a test type below to see top 3 students</p>';
             
-            if (standings.length >= 1) {
-                const medals = ['🥇', '🥈', '🥉'];
-                const classes = ['podium-1', 'podium-2', 'podium-3'];
-                
-                standings.slice(0, 3).forEach((user, index) => {
-                    const teacherDisplay = !teacherName ? `<div style="font-size: 0.9em; color: #999;">${user.teacher}</div>` : '';
-                    podiumDiv.innerHTML += `
-                        <div class="podium-item ${classes[index]}">
-                            <div class="podium-rank">${medals[index]}</div>
-                            <div class="podium-name">${user.name}</div>
-                            ${teacherDisplay}
-                            <div class="podium-score">${user.average}% avg</div>
-                        </div>
-                    `;
-                });
-            }
-
             const listDiv = document.getElementById('standingsList');
-            listDiv.innerHTML = '<h3 style="color: #667eea; margin-bottom: 15px;">All Students</h3>';
+            listDiv.innerHTML = '';
             
-            if (standings.length === 0) {
-                listDiv.innerHTML += '<p style="text-align: center; color: #666;">No students have completed tests yet!</p>';
+            if (Object.keys(testTypes).length === 0) {
+                listDiv.innerHTML = '<p style="text-align: center; color: #666;">No tests completed yet!</p>';
             } else {
-                standings.forEach((user, index) => {
-                    const isCurrentUser = user.name === currentUser;
-                    const teacherDisplay = !teacherName ? ` • ${user.teacher}` : '';
+                // Sort test types for consistent display
+                const sortedTestTypes = Object.keys(testTypes).sort();
+                
+                sortedTestTypes.forEach(testTypeKey => {
+                    const testType = testTypes[testTypeKey];
+                    const opLabel = operationLabels[testType.operation];
+                    const diffLabel = difficultyLabels[testType.difficulty];
+                    
+                    // Calculate average for each student in this test type
+                    const standings = Object.values(testType.students).map(student => {
+                        const avg = Math.round(student.totalScore / student.tests.length);
+                        return {
+                            name: student.name,
+                            teacher: student.teacher,
+                            average: avg,
+                            testCount: student.tests.length
+                        };
+                    }).sort((a, b) => b.average - a.average);
+                    
+                    // Create section for this test type
                     listDiv.innerHTML += `
-                        <div class="standing-item ${isCurrentUser ? 'current-user-standing' : ''}">
-                            <div class="standing-rank">#${index + 1}</div>
-                            <div class="standing-info">
-                                <div class="standing-name">${user.name} ${isCurrentUser ? '(You)' : ''}</div>
-                                <div class="standing-tests">${user.totalTests} tests • ${user.average}% average${teacherDisplay}</div>
+                        <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 15px; border-radius: 15px; margin: 20px 0;">
+                            <h3 style="color: white; margin-bottom: 15px;">${opLabel} - ${diffLabel}</h3>
+                            <div style="background: white; padding: 15px; border-radius: 10px;">
+                    `;
+                    
+                    standings.forEach((student, index) => {
+                        const isCurrentUser = student.name === currentUser;
+                        const teacherDisplay = !teacherName ? ` • ${student.teacher}` : '';
+                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                        
+                        listDiv.innerHTML += `
+                            <div class="standing-item ${isCurrentUser ? 'current-user-standing' : ''}" style="margin: 8px 0;">
+                                <div class="standing-rank">${medal} #${index + 1}</div>
+                                <div class="standing-info">
+                                    <div class="standing-name">${student.name} ${isCurrentUser ? '(You)' : ''}</div>
+                                    <div class="standing-tests">${student.testCount} tests • ${student.average}% average${teacherDisplay}</div>
+                                </div>
+                                <div class="standing-rank">${student.average}%</div>
                             </div>
-                            <div class="standing-rank">${user.average}%</div>
+                        `;
+                    });
+                    
+                    listDiv.innerHTML += `
+                            </div>
                         </div>
                     `;
                 });

@@ -322,9 +322,36 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Get teacher parameter from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const teacherName = urlParams.get('teacher');
+        // Get teacher parameter from URL (works in Wix embedded HTML)
+        function getTeacherParameter() {
+            // Try current window first
+            let urlParams = new URLSearchParams(window.location.search);
+            let teacher = urlParams.get('teacher');
+            
+            // If not found and we're in an iframe, try parent window
+            if (!teacher && window.parent !== window) {
+                try {
+                    urlParams = new URLSearchParams(window.parent.location.search);
+                    teacher = urlParams.get('teacher');
+                } catch (e) {
+                    // Cross-origin restriction, can't access parent
+                    console.log('Cannot access parent URL (cross-origin)');
+                }
+            }
+            
+            // If still not found, check if there's a hash parameter
+            if (!teacher) {
+                const hash = window.location.hash;
+                if (hash.includes('teacher=')) {
+                    const match = hash.match(/teacher=([^&]+)/);
+                    if (match) teacher = match[1];
+                }
+            }
+            
+            return teacher;
+        }
+        
+        const teacherName = getTeacherParameter();
 
         let currentUser = '';
         let operation = '';

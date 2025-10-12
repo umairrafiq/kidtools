@@ -829,13 +829,24 @@
                             average: avg,
                             testCount: student.tests.length
                         };
-                    }).sort((a, b) => b.average - a.average);
+                    }).sort((a, b) => {
+                        // First sort by average (higher is better)
+                        if (b.average !== a.average) {
+                            return b.average - a.average;
+                        }
+                        // If averages are equal, sort by test count (more tests is better)
+                        return b.testCount - a.testCount;
+                    });
                     
-                    // Create section for this test type
+                    // Create section for this test type with click to expand/collapse
+                    const sectionId = `section_${testTypeKey}`;
                     listDiv.innerHTML += `
                         <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 15px; border-radius: 15px; margin: 20px 0;">
-                            <h3 style="color: white; margin-bottom: 15px;">${opLabel} - ${diffLabel}</h3>
-                            <div style="background: white; padding: 15px; border-radius: 10px;">
+                            <h3 style="color: white; margin-bottom: 0; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;" onclick="toggleSection('${sectionId}')">
+                                <span>${opLabel} - ${diffLabel}</span>
+                                <span style="font-size: 0.8em;">(${standings.length} students) <span id="arrow_${sectionId}">▼</span></span>
+                            </h3>
+                            <div id="${sectionId}" style="background: white; padding: 15px; border-radius: 10px; margin-top: 15px;">
                     `;
                     
                     standings.forEach((student, index) => {
@@ -875,6 +886,19 @@
         window.closeStandings = function() {
             document.getElementById('standingsSection').classList.add('hidden');
             goHome();
+        }
+
+        window.toggleSection = function(sectionId) {
+            const section = document.getElementById(sectionId);
+            const arrow = document.getElementById('arrow_' + sectionId);
+            
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                arrow.textContent = '▼';  // Down arrow
+            } else {
+                section.style.display = 'none';
+                arrow.textContent = '▶';  // Right arrow
+            }
         }
 
         window.logout = function() {

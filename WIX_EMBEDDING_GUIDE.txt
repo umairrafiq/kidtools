@@ -1,0 +1,395 @@
+# 📚 Embedding Math Stars in Wix with Teacher Parameter
+
+## 🎯 Goal:
+Pass the teacher parameter from your Wix page URL to the embedded Math Stars game.
+
+---
+
+## 📝 Scenario:
+
+**Wix Page URL:** `https://yoursite.wix.com/math?teacher=MsCatie`
+**Need:** The embedded game should receive `?teacher=MsCatie`
+
+---
+
+## ✅ Solution: Two Methods
+
+---
+
+## 🔧 Method 1: Custom HTML iFrame (Recommended)
+
+### Step 1: Add HTML iFrame Element
+1. In Wix Editor, click **Add (+)** button
+2. Go to **Embed** → **HTML iframe**
+3. Place it where you want the game
+
+### Step 2: Add This Code
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <iframe id="mathGame" src="https://umairrafiq.github.io/kidtools/"></iframe>
+    
+    <script>
+        // Get teacher parameter from parent window URL
+        function getTeacherParam() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('teacher');
+        }
+        
+        // Set iframe source with teacher parameter
+        const teacher = getTeacherParam();
+        const iframe = document.getElementById('mathGame');
+        
+        if (teacher) {
+            iframe.src = `https://umairrafiq.github.io/kidtools/?teacher=${teacher}`;
+        }
+    </script>
+</body>
+</html>
+```
+
+### Step 3: Test
+- Visit: `https://yoursite.wix.com/math?teacher=MsCatie`
+- The embedded game should show "🏫 Class of MsCatie"
+
+---
+
+## 🔧 Method 2: Wix Velo Code (More Advanced)
+
+If you want more control using Wix's built-in code editor:
+
+### Step 1: Add HTML iFrame Element
+1. Add **HTML iframe** element to your page
+2. Give it an ID (e.g., "mathGameFrame")
+
+### Step 2: Enable Velo (Wix Code)
+1. Click **Dev Mode** in top menu
+2. This enables Wix Velo
+
+### Step 3: Add Page Code
+In the page code editor, add:
+
+```javascript
+import wixLocation from 'wix-location';
+
+$w.onReady(function () {
+    // Get teacher parameter from URL
+    const teacher = wixLocation.query.teacher;
+    
+    // Get the HTML iframe element
+    const iframe = $w('#mathGameFrame');
+    
+    // Build the game URL
+    let gameUrl = 'https://umairrafiq.github.io/kidtools/';
+    
+    if (teacher) {
+        gameUrl += `?teacher=${teacher}`;
+    }
+    
+    // Set iframe source
+    iframe.src = gameUrl;
+});
+```
+
+---
+
+## 🎨 Method 3: Direct Embed with Velo (Simplest)
+
+### Step 1: Add Custom Element
+1. Click **Add (+)** → **Embed** → **Custom Element**
+2. Choose **HTML iframe**
+
+### Step 2: Set Initial URL
+In the Settings panel, set:
+- **URL:** `https://umairrafiq.github.io/kidtools/`
+- **Element ID:** `mathGame`
+
+### Step 3: Add Velo Code
+```javascript
+import wixLocation from 'wix-location';
+
+$w.onReady(function () {
+    const teacher = wixLocation.query.teacher;
+    
+    if (teacher) {
+        $w('#mathGame').src = `https://umairrafiq.github.io/kidtools/?teacher=${teacher}`;
+    }
+});
+```
+
+---
+
+## 📋 Complete Example: Custom HTML Code
+
+Here's the **complete, copy-paste ready code** for the HTML iframe:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Stars Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #gameFrame {
+            border: none;
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+            display: block;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">Loading Math Stars... 🚀</div>
+    <iframe id="gameFrame" src="" style="display: none;"></iframe>
+    
+    <script>
+        // Function to get URL parameter
+        function getUrlParameter(name) {
+            // Try to get from current window
+            const urlParams = new URLSearchParams(window.location.search);
+            let param = urlParams.get(name);
+            
+            // If not found, try parent window (for iframes in Wix)
+            if (!param && window.parent !== window) {
+                try {
+                    const parentParams = new URLSearchParams(window.parent.location.search);
+                    param = parentParams.get(name);
+                } catch (e) {
+                    // Cross-origin, can't access parent
+                    console.log('Cannot access parent URL');
+                }
+            }
+            
+            return param;
+        }
+        
+        // Get teacher parameter
+        const teacher = getUrlParameter('teacher');
+        
+        // Build game URL
+        let gameUrl = 'https://umairrafiq.github.io/kidtools/';
+        if (teacher) {
+            gameUrl += `?teacher=${encodeURIComponent(teacher)}`;
+            console.log('Loading with teacher:', teacher);
+        }
+        
+        // Load the iframe
+        const iframe = document.getElementById('gameFrame');
+        const loading = document.getElementById('loading');
+        
+        iframe.onload = function() {
+            loading.style.display = 'none';
+            iframe.style.display = 'block';
+        };
+        
+        iframe.src = gameUrl;
+    </script>
+</body>
+</html>
+```
+
+---
+
+## 🔗 URL Structure for Teachers
+
+### Create Separate Pages for Each Teacher:
+
+**Page 1:** `/math-mscatie`
+- Add HTML embed with teacher parameter hardcoded
+- URL: `https://umairrafiq.github.io/kidtools/?teacher=MsCatie`
+
+**Page 2:** `/math-mrsmith`
+- Add HTML embed with teacher parameter hardcoded
+- URL: `https://umairrafiq.github.io/kidtools/?teacher=MrSmith`
+
+### OR: Use Dynamic Parameter
+
+**One Page:** `/math`
+- Share as: `yoursite.com/math?teacher=MsCatie`
+- Code reads parameter and passes to iframe
+
+---
+
+## 🎯 Teacher-Specific Embed Code
+
+If you want to hardcode the teacher name (easiest):
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; }
+        iframe { border: none; width: 100%; height: 100%; min-height: 600px; }
+    </style>
+</head>
+<body>
+    <!-- Replace "MsCatie" with your teacher name -->
+    <iframe src="https://umairrafiq.github.io/kidtools/?teacher=MsCatie"></iframe>
+</body>
+</html>
+```
+
+**Advantages:**
+- ✅ Simple and reliable
+- ✅ No JavaScript needed
+- ✅ Works in all scenarios
+- ✅ No URL parameter confusion
+
+**Create one HTML embed per teacher!**
+
+---
+
+## 📱 Responsive Sizing
+
+For better responsive design:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .game-container {
+            width: 100%;
+            height: 100vh;
+            min-height: 600px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <iframe src="https://umairrafiq.github.io/kidtools/?teacher=MsCatie"></iframe>
+    </div>
+</body>
+</html>
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Problem: Parameter not passing
+**Solution:** Use hardcoded teacher name in iframe src
+
+### Problem: Cross-origin errors
+**Solution:** Your game is on a different domain, this is expected. Use Method 1.
+
+### Problem: Iframe not showing
+**Solution:** Increase min-height to 600px or more
+
+### Problem: Can't access parent URL
+**Solution:** This is a browser security feature. Use hardcoded teacher names.
+
+---
+
+## ✅ Recommended Approach
+
+**Best Solution: Create Separate Wix Pages**
+
+1. **Create Pages:**
+   - `/math-mscatie`
+   - `/math-mrsmith`
+   - `/math-drjohnson`
+
+2. **Add HTML Embed to Each:**
+   ```html
+   <iframe src="https://umairrafiq.github.io/kidtools/?teacher=MsCatie" 
+           style="width: 100%; height: 800px; border: none;"></iframe>
+   ```
+
+3. **Share Teacher-Specific URLs:**
+   - Ms. Catie: `yoursite.com/math-mscatie`
+   - Mr. Smith: `yoursite.com/math-mrsmith`
+
+**Why This Works Best:**
+- ✅ No JavaScript complexity
+- ✅ No URL parameter issues
+- ✅ Clean, dedicated pages per teacher
+- ✅ Easy to customize per teacher
+- ✅ Reliable and simple
+
+---
+
+## 🚀 Quick Start Steps
+
+1. **In Wix Editor:** Add → Embed → HTML iframe
+2. **Paste this code:**
+   ```html
+   <iframe src="https://umairrafiq.github.io/kidtools/?teacher=TEACHERNAME" 
+           style="width: 100%; height: 800px; border: none; border-radius: 10px;"></iframe>
+   ```
+3. **Replace TEACHERNAME** with actual teacher name
+4. **Publish page**
+5. **Share URL** with students
+
+**Done!** 🎉
+
+---
+
+## 📞 Need More Help?
+
+If you're still having issues, share:
+1. How you're embedding (HTML iframe, Velo, etc.)
+2. Your Wix page structure
+3. Any error messages
+
+I can provide more specific guidance! 👍

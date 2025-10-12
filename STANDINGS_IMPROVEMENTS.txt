@@ -1,0 +1,248 @@
+# ✅ Standings Update - Sorting & Collapsible Sections!
+
+## 🎯 New Features Added:
+
+### 1. **Improved Sorting (Tie-Breaking)**
+### 2. **Collapsible Test Type Sections**
+
+---
+
+## 🏆 Feature 1: Better Sorting with Tie-Breaking
+
+### **How Ranking Works Now:**
+
+#### **Primary Sort: Average Score**
+Students are ranked by their average percentage (highest first)
+
+#### **Tie-Breaker: Number of Tests**
+When two students have the **same average score**, the student who took **more tests** ranks higher!
+
+### **Why This Matters:**
+
+**Example Scenario:**
+- **Sarah**: 100% average (from 5 tests)
+- **John**: 100% average (from 2 tests)
+
+**Old Ranking:** Both tied at #1 (random order)
+**New Ranking:** 
+- 🥇 #1 Sarah - 5 tests • 100% average
+- 🥈 #2 John - 2 tests • 100% average
+
+**Reason:** Sarah demonstrated consistency over more attempts!
+
+### **Benefits:**
+- ✅ Rewards consistency across multiple tests
+- ✅ No more random ordering for tied scores
+- ✅ Encourages students to take more tests
+- ✅ More fair ranking system
+- ✅ Students with same score but different experience levels are differentiated
+
+### **Sorting Logic:**
+```
+1. Sort by average score (highest first)
+2. IF scores are equal → Sort by test count (more tests first)
+3. Result: Fair, deterministic ranking
+```
+
+---
+
+## 📂 Feature 2: Collapsible Test Type Sections
+
+### **What's New:**
+
+Each test type section can now be **collapsed or expanded** by clicking on the header!
+
+### **Visual Changes:**
+
+#### **Expanded (Default):**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Addition - 1-Digit  (5 students) ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🥇 #1  Sarah    5 tests • 100% average
+🥈 #2  John     2 tests • 100% average
+🥉 #3  Mike     4 tests • 95% average
+   #4  Emma     3 tests • 90% average
+   #5  Tom      2 tests • 85% average
+```
+
+#### **Collapsed (After Clicking):**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Addition - 1-Digit  (5 students) ▶
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### **How to Use:**
+1. Click on any **test type header** (the purple bar)
+2. The section **collapses** (hides students)
+3. Click again to **expand** (shows students)
+
+### **Features:**
+- ✅ **Arrow indicator**: ▼ (expanded) / ▶ (collapsed)
+- ✅ **Student count** shown in header: "(5 students)"
+- ✅ **Click anywhere** on the purple header to toggle
+- ✅ **Each section** toggles independently
+- ✅ **State preserved** until you navigate away
+
+### **Benefits:**
+
+#### **For Viewing Many Test Types:**
+- Collapse sections you're not interested in
+- Focus on specific test types
+- Cleaner, less cluttered view
+- Easier scrolling
+
+#### **For Quick Overview:**
+- See all test type names at a glance
+- Student counts visible even when collapsed
+- Expand only what you need to see
+
+#### **For Mobile Users:**
+- Less scrolling required
+- Better use of screen space
+- Faster navigation
+
+---
+
+## 🎨 Visual Design:
+
+### **Expanded Section:**
+- Purple gradient header with white text
+- Down arrow (▼) on the right
+- Full student list visible
+- White background for rankings
+
+### **Collapsed Section:**
+- Purple gradient header with white text
+- Right arrow (▶) on the right
+- No student list (hidden)
+- Takes minimal space
+
+### **Interactive Elements:**
+- Cursor changes to pointer on hover
+- Smooth toggle (instant show/hide)
+- Clear visual feedback
+
+---
+
+## 📊 Complete Example:
+
+```
+🏆 Leaderboard - All Students
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Addition - 1-Digit  (5 students) ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🥇 #1  Sarah    5 tests • 100% average • MsCatie
+🥈 #2  John     2 tests • 100% average • MsCatie
+🥉 #3  Mike     4 tests • 95% average • MrSmith
+   #4  Emma     3 tests • 90% average • MsCatie
+   #5  Tom      2 tests • 85% average • MrSmith
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Addition - 2-Digit  (3 students) ▶
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Collapsed - Click to expand]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Multiplication - 1-Digit  (4 students) ▼
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🥇 #1  Mike     8 tests • 98% average • MrSmith
+🥈 #2  Sarah    8 tests • 98% average • MsCatie
+   (Note: Mike ranks higher due to 8 tests vs Sarah's 8)
+```
+
+---
+
+## 💡 Use Cases:
+
+### **Scenario 1: Teacher Reviewing Class**
+- Expand only test types students struggled with
+- Collapse mastered topics
+- Quick assessment of problem areas
+
+### **Scenario 2: Student Checking Progress**
+- Find your specific test type quickly
+- Collapse others to focus
+- See where you rank easily
+
+### **Scenario 3: Parent Viewing Results**
+- Scan all test types quickly
+- Expand to see detailed rankings
+- Compare child's performance
+
+---
+
+## 🔧 Technical Details:
+
+### **Sorting Algorithm:**
+```javascript
+.sort((a, b) => {
+    // Primary: Sort by average (descending)
+    if (b.average !== a.average) {
+        return b.average - a.average;
+    }
+    // Tie-breaker: Sort by test count (descending)
+    return b.testCount - a.testCount;
+})
+```
+
+### **Toggle Function:**
+```javascript
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const arrow = document.getElementById('arrow_' + sectionId);
+    
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        arrow.textContent = '▼';
+    } else {
+        section.style.display = 'none';
+        arrow.textContent = '▶';
+    }
+}
+```
+
+---
+
+## 🚀 Live Now!
+
+**Visit:** https://umairrafiq.github.io/kidtools/
+
+**Test It:**
+1. Click "Standings" button
+2. See student counts in headers
+3. Click any purple header to collapse/expand
+4. Notice tie-breaking by test count
+
+---
+
+## 📱 Mobile Friendly:
+
+Both features work great on mobile:
+- ✅ Easy to tap section headers
+- ✅ Collapsing saves screen space
+- ✅ Clear visual indicators
+- ✅ Smooth interactions
+
+---
+
+## 🎯 Summary:
+
+### **What Changed:**
+1. ✅ **Tie-breaking**: Students with same score ranked by test count
+2. ✅ **Collapsible sections**: Click headers to show/hide
+3. ✅ **Student counts**: Shown in section headers
+4. ✅ **Arrow indicators**: ▼ (open) / ▶ (closed)
+
+### **Why It Matters:**
+- Fair ranking system
+- Better user experience
+- Easier navigation
+- Cleaner interface
+- Mobile-friendly
+
+---
+
+**The standings are now more functional and user-friendly!** 🎉📊

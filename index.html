@@ -324,31 +324,46 @@
 
         // Get teacher parameter from URL (works in Wix embedded HTML)
         function getTeacherParameter() {
-            // Try current window first
+            // FIRST: Check if teacher is set via window variable (for Wix embedding)
+            if (window.TEACHER_NAME) {
+                console.log('Teacher from window variable:', window.TEACHER_NAME);
+                return window.TEACHER_NAME;
+            }
+            
+            // Try current window URL
             let urlParams = new URLSearchParams(window.location.search);
             let teacher = urlParams.get('teacher');
+            if (teacher) {
+                console.log('Teacher from current URL:', teacher);
+                return teacher;
+            }
             
-            // If not found and we're in an iframe, try parent window
-            if (!teacher && window.parent !== window) {
+            // If in an iframe, try parent window
+            if (window.parent !== window) {
                 try {
                     urlParams = new URLSearchParams(window.parent.location.search);
                     teacher = urlParams.get('teacher');
+                    if (teacher) {
+                        console.log('Teacher from parent URL:', teacher);
+                        return teacher;
+                    }
                 } catch (e) {
-                    // Cross-origin restriction, can't access parent
-                    console.log('Cannot access parent URL (cross-origin)');
+                    console.log('Cannot access parent URL (cross-origin):', e.message);
                 }
             }
             
-            // If still not found, check if there's a hash parameter
-            if (!teacher) {
-                const hash = window.location.hash;
-                if (hash.includes('teacher=')) {
-                    const match = hash.match(/teacher=([^&]+)/);
-                    if (match) teacher = match[1];
+            // Check hash parameter
+            const hash = window.location.hash;
+            if (hash.includes('teacher=')) {
+                const match = hash.match(/teacher=([^&]+)/);
+                if (match) {
+                    console.log('Teacher from hash:', match[1]);
+                    return match[1];
                 }
             }
             
-            return teacher;
+            console.log('No teacher parameter found');
+            return null;
         }
         
         const teacherName = getTeacherParameter();

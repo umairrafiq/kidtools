@@ -306,6 +306,22 @@
     </div>
 
     <script type="module">
+        /* 
+         * HOW TO USE IN WIX:
+         * 
+         * Method 1 - Direct URL (if Wix allows access):
+         *   https://umairrafiq.wixsite.com/kidtools?teacher=MsSanam
+         * 
+         * Method 2 - Hash Parameter (if URL params are blocked):
+         *   https://umairrafiq.wixsite.com/kidtools#teacher=MsSanam
+         * 
+         * Method 3 - Set via Wix Code (in page code):
+         *   window.TEACHER_NAME = 'MsSanam';
+         * 
+         * The app will automatically detect and use the teacher parameter.
+         * Check browser console for detailed logs about parameter detection.
+         */
+        
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore, collection, doc, setDoc, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
@@ -324,49 +340,106 @@
 
         // Get teacher parameter from URL (works in Wix embedded HTML)
         function getTeacherParameter() {
+            console.log('=== Checking for teacher parameter ===');
+            
             // FIRST: Check if teacher is set via window variable (for Wix embedding)
             if (window.TEACHER_NAME) {
-                console.log('Teacher from window variable:', window.TEACHER_NAME);
+                console.log('✓ Teacher from window variable:', window.TEACHER_NAME);
                 return window.TEACHER_NAME;
             }
             
             // Try current window URL
             let urlParams = new URLSearchParams(window.location.search);
             let teacher = urlParams.get('teacher');
+            console.log('Current window URL:', window.location.href);
+            console.log('Current window search params:', window.location.search);
             if (teacher) {
-                console.log('Teacher from current URL:', teacher);
+                console.log('✓ Teacher from current URL:', teacher);
                 return teacher;
             }
             
             // If in an iframe, try parent window
             if (window.parent !== window) {
+                console.log('Running in iframe, attempting to access parent...');
                 try {
                     urlParams = new URLSearchParams(window.parent.location.search);
                     teacher = urlParams.get('teacher');
+                    console.log('Parent window URL:', window.parent.location.href);
+                    console.log('Parent window search params:', window.parent.location.search);
                     if (teacher) {
-                        console.log('Teacher from parent URL:', teacher);
+                        console.log('✓ Teacher from parent URL:', teacher);
                         return teacher;
                     }
                 } catch (e) {
-                    console.log('Cannot access parent URL (cross-origin):', e.message);
+                    console.log('✗ Cannot access parent URL (cross-origin):', e.message);
+                    console.log('This is normal for Wix - try using postMessage or URL hash');
                 }
             }
             
-            // Check hash parameter
+            // Check hash parameter (Wix alternative)
             const hash = window.location.hash;
+            console.log('Current hash:', hash);
             if (hash.includes('teacher=')) {
                 const match = hash.match(/teacher=([^&]+)/);
                 if (match) {
-                    console.log('Teacher from hash:', match[1]);
+                    console.log('✓ Teacher from hash:', match[1]);
                     return match[1];
                 }
             }
             
-            console.log('No teacher parameter found');
+            // Try to get from top window (alternative for Wix)
+            if (window !== window.top) {
+                try {
+                    const topParams = new URLSearchParams(window.top.location.search);
+                    teacher = topParams.get('teacher');
+                    if (teacher) {
+                        console.log('✓ Teacher from top window:', teacher);
+                        return teacher;
+                    }
+                } catch (e) {
+                    console.log('✗ Cannot access top window:', e.message);
+                }
+            }
+            
+            console.log('✗ No teacher parameter found in any location');
             return null;
         }
         
-        const teacherName = getTeacherParameter();
+        let teacherName = getTeacherParameter();
+        
+        // Listen for messages from Wix parent window
+        window.addEventListener('message', function(event) {
+            console.log('Received postMessage:', event.data);
+            
+            // Check if message contains teacher info
+            if (event.data && event.data.teacher) {
+                console.log('✓ Teacher from postMessage:', event.data.teacher);
+                teacherName = event.data.teacher;
+                updateTeacherDisplay();
+            }
+            // Also check for urlData format (some Wix implementations)
+            if (event.data && event.data.urlData && event.data.urlData.teacher) {
+                console.log('✓ Teacher from postMessage urlData:', event.data.urlData.teacher);
+                teacherName = event.data.urlData.teacher;
+                updateTeacherDisplay();
+            }
+        });
+        
+        // Request URL data from parent (for Wix)
+        if (window.parent !== window) {
+            console.log('Requesting URL data from parent window...');
+            window.parent.postMessage({ action: 'getUrlData' }, '*');
+        }
+        
+        // Function to update teacher display after getting parameter
+        function updateTeacherDisplay() {
+            if (teacherName) {
+                const banner = document.getElementById('teacherBanner');
+                banner.textContent = `🏫 Class of ${teacherName}`;
+                banner.classList.remove('hidden');
+                console.log('Teacher banner updated with:', teacherName);
+            }
+        }
 
         let currentUser = '';
         let operation = '';

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Teacher Parameter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #667eea;
+        }
+        .result {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #4caf50;
+        }
+        .error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .test-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .test-link {
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+        .test-link:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-box">
+        <h1>🧪 Teacher Parameter Test</h1>
+        <p>This page tests the teacher parameter detection for the KidTools app.</p>
+        
+        <div id="results"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test Links</h2>
+        <p>Click these links to test different teacher parameters:</p>
+        <div class="test-links">
+            <a href="test-teacher-param.html?teacher=MsSanam" class="test-link">
+                Test with ?teacher=MsSanam
+            </a>
+            <a href="test-teacher-param.html?teacher=MrJohn" class="test-link">
+                Test with ?teacher=MrJohn
+            </a>
+            <a href="test-teacher-param.html#teacher=MsSmith" class="test-link">
+                Test with #teacher=MsSmith (hash method)
+            </a>
+            <a href="test-teacher-param.html" class="test-link">
+                Test with no teacher parameter
+            </a>
+        </div>
+    </div>
+
+    <div class="test-box">
+        <h2>For Wix Integration</h2>
+        <p>Use these URL formats in Wix:</p>
+        <ul>
+            <li><code>https://umairrafiq.wixsite.com/kidtools?teacher=MsSanam</code></li>
+            <li><code>https://umairrafiq.wixsite.com/kidtools#teacher=MsSanam</code> (if query params don't work)</li>
+        </ul>
+    </div>
+
+    <script>
+        // Same function as in the main app
+        function getTeacherParameter() {
+            console.log('=== Checking for teacher parameter ===');
+            
+            // FIRST: Check if teacher is set via window variable (for Wix embedding)
+            if (window.TEACHER_NAME) {
+                console.log('✓ Teacher from window variable:', window.TEACHER_NAME);
+                return window.TEACHER_NAME;
+            }
+            
+            // Try current window URL
+            let urlParams = new URLSearchParams(window.location.search);
+            let teacher = urlParams.get('teacher');
+            console.log('Current window URL:', window.location.href);
+            console.log('Current window search params:', window.location.search);
+            if (teacher) {
+                console.log('✓ Teacher from current URL:', teacher);
+                return teacher;
+            }
+            
+            // If in an iframe, try parent window
+            if (window.parent !== window) {
+                console.log('Running in iframe, attempting to access parent...');
+                try {
+                    urlParams = new URLSearchParams(window.parent.location.search);
+                    teacher = urlParams.get('teacher');
+                    console.log('Parent window URL:', window.parent.location.href);
+                    console.log('Parent window search params:', window.parent.location.search);
+                    if (teacher) {
+                        console.log('✓ Teacher from parent URL:', teacher);
+                        return teacher;
+                    }
+                } catch (e) {
+                    console.log('✗ Cannot access parent URL (cross-origin):', e.message);
+                    console.log('This is normal for Wix - try using postMessage or URL hash');
+                }
+            }
+            
+            // Check hash parameter (Wix alternative)
+            const hash = window.location.hash;
+            console.log('Current hash:', hash);
+            if (hash.includes('teacher=')) {
+                const match = hash.match(/teacher=([^&]+)/);
+                if (match) {
+                    console.log('✓ Teacher from hash:', match[1]);
+                    return match[1];
+                }
+            }
+            
+            // Try to get from top window (alternative for Wix)
+            if (window !== window.top) {
+                try {
+                    const topParams = new URLSearchParams(window.top.location.search);
+                    teacher = topParams.get('teacher');
+                    if (teacher) {
+                        console.log('✓ Teacher from top window:', teacher);
+                        return teacher;
+                    }
+                } catch (e) {
+                    console.log('✗ Cannot access top window:', e.message);
+                }
+            }
+            
+            console.log('✗ No teacher parameter found in any location');
+            return null;
+        }
+
+        // Run the test
+        const teacherName = getTeacherParameter();
+        const resultsDiv = document.getElementById('results');
+
+        let html = '<h3>Test Results:</h3>';
+        
+        html += '<div class="result info">';
+        html += '<strong>Current URL:</strong><br>';
+        html += `<code>${window.location.href}</code>`;
+        html += '</div>';
+
+        html += '<div class="result info">';
+        html += '<strong>Search Parameters:</strong><br>';
+        html += `<code>${window.location.search || '(none)'}</code>`;
+        html += '</div>';
+
+        html += '<div class="result info">';
+        html += '<strong>Hash:</strong><br>';
+        html += `<code>${window.location.hash || '(none)'}</code>`;
+        html += '</div>';
+
+        if (teacherName) {
+            html += `<div class="result">`;
+            html += `<strong>✓ Teacher Parameter Detected!</strong><br>`;
+            html += `Teacher Name: <code>${teacherName}</code>`;
+            html += `</div>`;
+        } else {
+            html += `<div class="result error">`;
+            html += `<strong>✗ No Teacher Parameter Found</strong><br>`;
+            html += `Try clicking one of the test links above.`;
+            html += `</div>`;
+        }
+
+        html += '<div class="result info">';
+        html += '<strong>💡 Open browser console (F12) for detailed logs</strong>';
+        html += '</div>';
+
+        resultsDiv.innerHTML = html;
+    </script>
+</body>
+</html>

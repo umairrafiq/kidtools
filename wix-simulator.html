@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wix Simulator - Test postMessage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .controls h2 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            margin-right: 10px;
+            width: 200px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border-left: 4px solid #2196f3;
+        }
+        .success {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+        }
+        .error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        #console {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        #iframe {
+            width: 100%;
+            height: 600px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h2>🧪 Wix postMessage Simulator</h2>
+        <p>This page simulates how Wix sends the teacher parameter to your embedded HTML.</p>
+        
+        <div>
+            <input type="text" id="teacherInput" placeholder="Enter teacher name" value="MsSanam">
+            <button onclick="sendTeacherToIframe()">Send to iframe</button>
+            <button onclick="reloadIframe()">Reload iframe</button>
+        </div>
+        
+        <div class="info">
+            <strong>💡 How it works:</strong>
+            <ol>
+                <li>This page loads your index.html in an iframe (simulating Wix)</li>
+                <li>Enter a teacher name and click "Send to iframe"</li>
+                <li>The message is sent using postMessage (same as Wix would do)</li>
+                <li>Your app receives it and updates the teacher banner</li>
+            </ol>
+        </div>
+
+        <div id="status"></div>
+        
+        <div id="console"></div>
+    </div>
+
+    <iframe id="iframe" src="index.html"></iframe>
+
+    <script>
+        const iframe = document.getElementById('iframe');
+        const consoleDiv = document.getElementById('console');
+        const statusDiv = document.getElementById('status');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#00ff00' : type === 'error' ? '#ff0000' : '#00ff00';
+            consoleDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function sendTeacherToIframe() {
+            const teacher = document.getElementById('teacherInput').value.trim();
+            
+            if (!teacher) {
+                showStatus('Please enter a teacher name', 'error');
+                log('ERROR: No teacher name provided', 'error');
+                return;
+            }
+
+            log(`Sending teacher parameter to iframe: "${teacher}"`, 'success');
+            
+            // Send message to iframe (simulating Wix)
+            iframe.contentWindow.postMessage({
+                teacher: teacher
+            }, '*');
+            
+            showStatus(`✓ Sent teacher="${teacher}" to iframe`, 'success');
+            log('Message sent successfully', 'success');
+        }
+
+        function reloadIframe() {
+            log('Reloading iframe...', 'info');
+            iframe.src = iframe.src;
+            showStatus('Iframe reloaded', 'info');
+        }
+
+        function showStatus(message, type) {
+            statusDiv.innerHTML = `<div class="info ${type}">${message}</div>`;
+        }
+
+        // Listen for messages from iframe
+        window.addEventListener('message', function(event) {
+            log(`Received message from iframe: ${JSON.stringify(event.data)}`, 'success');
+            
+            if (event.data && event.data.action === 'getUrlData') {
+                log('Iframe requested URL data', 'info');
+                const teacher = document.getElementById('teacherInput').value.trim();
+                if (teacher) {
+                    log(`Responding with teacher="${teacher}"`, 'success');
+                    iframe.contentWindow.postMessage({
+                        teacher: teacher
+                    }, '*');
+                }
+            }
+        });
+
+        // Wait for iframe to load, then send initial message
+        iframe.onload = function() {
+            log('Iframe loaded successfully', 'success');
+            log('Waiting 2 seconds before sending initial message...', 'info');
+            
+            setTimeout(() => {
+                const teacher = document.getElementById('teacherInput').value.trim();
+                if (teacher) {
+                    log('Sending initial teacher parameter...', 'info');
+                    sendTeacherToIframe();
+                } else {
+                    log('No teacher name set - enter one and click Send', 'info');
+                }
+            }, 2000);
+        };
+
+        log('=== Wix Simulator Started ===', 'success');
+        log('Loading iframe with index.html...', 'info');
+    </script>
+</body>
+</html>

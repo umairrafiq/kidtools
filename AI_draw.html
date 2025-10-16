@@ -37,7 +37,7 @@
 
   /* Modal */
   .modal-overlay{ position: fixed; inset:0; background: rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index: 20; }
-  .modal{ background: #fff; color:#0f172a; width: min(720px, 92vw); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow:hidden; }
+  .modal{ background: #fff; color:#0f172a; width: min(720px, 92vw); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow:hidden; max-height: 90vh; overflow-y: auto; }
   .modal header{ padding:14px 16px; font-weight:700; background:#f1f5f9; display:flex; align-items:center; justify-content:space-between; }
   .modal .body{ padding:16px; display:grid; gap:12px; }
   .modal footer{ padding:12px 16px; display:flex; gap:10px; justify-content:flex-end; background:#f8fafc; }
@@ -46,8 +46,9 @@
   .modal select{ width:100%; padding:8px; border-radius:10px; border:1px solid #cbd5e1; font-family:inherit; background: #fff; }
   .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
   .help{ font-size:12px; color:#475569; margin-top: 4px; }
-  .api-choice{ display: flex; gap: 8px; align-items: center; }
-  .api-choice input[type="radio"]{ margin: 0; }
+  .warning{ background: #fef3c7; border: 1px solid #fbbf24; padding: 12px; border-radius: 10px; margin: 12px 0; }
+  .warning strong { color: #92400e; }
+  .info-box { background: #dbeafe; border: 1px solid #3b82f6; padding: 12px; border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -95,6 +96,14 @@
         <button id="aiClose" class="btn ghost" aria-label="Close">✕</button>
       </header>
       <div class="body">
+        <div class="warning">
+          <strong>⚠️ CORS Limitation:</strong> Direct browser API calls are blocked by CORS policy. You have two options:
+          <br><br>
+          <strong>Option 1 (Recommended):</strong> Use a proxy URL (see instructions below)
+          <br>
+          <strong>Option 2:</strong> Download this file and run it locally (file:// protocol bypasses CORS)
+        </div>
+
         <div>
           <label for="aiPrompt">Drawing Prompt</label>
           <textarea id="aiPrompt" placeholder="e.g., Draw a simple house with a chimney, windows, door, and a tree next to it"></textarea>
@@ -112,37 +121,98 @@
         </div>
 
         <div>
-          <label>AI Provider</label>
-          <div class="api-choice">
-            <input type="radio" id="useClaude" name="apiProvider" value="claude" checked />
-            <label for="useClaude" style="margin: 0;">Claude (Recommended - Best for drawing)</label>
-          </div>
-          <div class="api-choice" style="margin-top: 6px;">
-            <input type="radio" id="useOpenAI" name="apiProvider" value="openai" />
-            <label for="useOpenAI" style="margin: 0;">OpenAI (Fallback)</label>
+          <label for="proxyUrl">Proxy URL (Optional - solves CORS issue)</label>
+          <input id="proxyUrl" type="text" placeholder="https://your-worker.workers.dev" />
+          <div class="help">
+            Enter your Cloudflare Worker or proxy URL. <a href="#" id="showProxyInstructions" style="color: #3b82f6;">Show setup instructions</a>
           </div>
         </div>
 
-        <div id="claudeApiSection">
-          <label for="claudeKey">Claude API Key</label>
-          <div style="display: flex; gap: 8px;">
-            <input id="claudeKey" type="password" placeholder="Enter your Claude API key" style="flex: 1;" />
-            <a href="https://console.anthropic.com/settings/keys" target="_blank" class="btn link" title="Get Claude API Key">
-              🔑 Get Key
-            </a>
-          </div>
-          <div class="help">Get your free Claude API key by clicking the button above. Copy and paste it here. Stored locally in your browser.</div>
+        <div id="proxyInstructions" style="display: none;" class="info-box">
+          <strong>📝 Quick Proxy Setup:</strong><br><br>
+          <strong>Method 1 - Cloudflare Worker (Free, 5 min):</strong><br>
+          1. Sign up at <a href="https://workers.cloudflare.com/" target="_blank">workers.cloudflare.com</a><br>
+          2. Create a new worker with this code:<br>
+          <pre style="background: #1e293b; color: #e2e8f0; padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 11px; margin: 8px 0;">
+// Cloudflare Worker Proxy for AI APIs
+export default {
+  async fetch(request) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, x-api-key, Authorization'
+        }
+      });
+    }
+
+    const url = new URL(request.url);
+    const apiProvider = url.searchParams.get('provider') || 'openai';
+    
+    let targetUrl, headers;
+    const body = await request.text();
+    const apiKey = request.headers.get('x-api-key') || request.headers.get('Authorization')?.replace('Bearer ', '');
+    
+    if (apiProvider === 'claude') {
+      targetUrl = 'https://api.anthropic.com/v1/messages';
+      headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      };
+    } else {
+      targetUrl = 'https://api.openai.com/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+    }
+
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: headers,
+      body: body
+    });
+
+    const result = await response.text();
+    
+    return new Response(result, {
+      status: response.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}</pre>
+          3. Deploy and copy your worker URL<br>
+          4. Paste the URL above (e.g., https://my-proxy.workers.dev)<br><br>
+          
+          <strong>Method 2 - Run Locally:</strong><br>
+          Download this HTML file and open it with <code>file://</code> protocol - no CORS restrictions!
         </div>
 
-        <div id="openaiApiSection" style="display: none;">
-          <label for="openaiKey">OpenAI API Key</label>
+        <div>
+          <label for="apiKey">API Key</label>
           <div style="display: flex; gap: 8px;">
-            <input id="openaiKey" type="password" placeholder="Enter your OpenAI API key" style="flex: 1;" />
+            <input id="apiKey" type="password" placeholder="Enter your OpenAI or Claude API key" style="flex: 1;" />
             <a href="https://platform.openai.com/api-keys" target="_blank" class="btn link" title="Get OpenAI API Key">
-              🔑 Get Key
+              🔑 OpenAI
+            </a>
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" class="btn link" title="Get Claude API Key">
+              🔑 Claude
             </a>
           </div>
-          <div class="help">Get your OpenAI API key by clicking the button above. Copy and paste it here.</div>
+          <div class="help">Get an API key from OpenAI or Claude. Keys are stored locally in your browser.</div>
+        </div>
+
+        <div>
+          <label>
+            <input type="checkbox" id="useClaude" /> 
+            Use Claude API (better for drawing, requires proxy or local file)
+          </label>
+          <div class="help">OpenAI works by default. Claude requires proxy setup but gives better results.</div>
         </div>
 
         <div id="aiError" class="help" style="color:#b91c1c; display:none;"></div>
@@ -190,12 +260,11 @@
   const aiRun    = document.getElementById('aiRun');
   const aiPrompt = document.getElementById('aiPrompt');
   const skillLevel = document.getElementById('skillLevel');
-  const claudeKey = document.getElementById('claudeKey');
-  const openaiKey = document.getElementById('openaiKey');
+  const apiKey = document.getElementById('apiKey');
   const useClaude = document.getElementById('useClaude');
-  const useOpenAI = document.getElementById('useOpenAI');
-  const claudeApiSection = document.getElementById('claudeApiSection');
-  const openaiApiSection = document.getElementById('openaiApiSection');
+  const proxyUrl = document.getElementById('proxyUrl');
+  const showProxyInstructions = document.getElementById('showProxyInstructions');
+  const proxyInstructions = document.getElementById('proxyInstructions');
   const aiError  = document.getElementById('aiError');
 
   // State
@@ -204,15 +273,13 @@
   let brushColor = colorInput.value;
   let brushSize = parseInt(sizeInput.value, 10);
   let erasing = false;
-  // Background color state (CSS var --bg)
   let bgColor = (getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#0f172a').trim();
 
   // Recording state
   let isRecording = false;
   let recording = { version: 1, canvas: { w: 0, h: 0 }, strokes: [] };
   let currentStroke = null;
-  // Playback state
-  let loadedRecording = null; // when importing, store here
+  let loadedRecording = null;
   let stopPlaybackFlag = false;
 
   function setStatus(msg){ statusEl.textContent = msg || ''; }
@@ -220,35 +287,26 @@
     aiModal.style.display = 'flex'; 
     aiError.style.display = 'none'; 
     aiError.textContent=''; 
-    // Load saved keys from localStorage
-    const savedClaudeKey = localStorage.getItem('claudeApiKey');
-    const savedOpenAIKey = localStorage.getItem('openaiApiKey');
-    if (savedClaudeKey) claudeKey.value = savedClaudeKey;
-    if (savedOpenAIKey) openaiKey.value = savedOpenAIKey;
+    const savedKey = localStorage.getItem('aiApiKey');
+    const savedProxy = localStorage.getItem('proxyUrl');
+    const savedUseClaude = localStorage.getItem('useClaude') === 'true';
+    if (savedKey) apiKey.value = savedKey;
+    if (savedProxy) proxyUrl.value = savedProxy;
+    useClaude.checked = savedUseClaude;
     aiPrompt.focus(); 
   }
   function hideModal(){ aiModal.style.display = 'none'; }
   function showAlert(msg){ aiError.textContent = msg; aiError.style.display = 'block'; }
 
-  // Toggle API provider sections
-  function toggleApiSections() {
-    if (useClaude.checked) {
-      claudeApiSection.style.display = 'block';
-      openaiApiSection.style.display = 'none';
-    } else {
-      claudeApiSection.style.display = 'none';
-      openaiApiSection.style.display = 'block';
-    }
-  }
-  useClaude.addEventListener('change', toggleApiSections);
-  useOpenAI.addEventListener('change', toggleApiSections);
+  showProxyInstructions.addEventListener('click', (e) => {
+    e.preventDefault();
+    proxyInstructions.style.display = proxyInstructions.style.display === 'none' ? 'block' : 'none';
+  });
 
-  // Improve sharpness on HiDPI
   function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const w = window.innerWidth;
     const h = window.innerHeight;
-    // Save current content
     const tmp = document.createElement('canvas');
     tmp.width = canvas.width; tmp.height = canvas.height;
     const tctx = tmp.getContext('2d');
@@ -258,10 +316,9 @@
     canvas.height = Math.floor(h * dpr);
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing ops
-    // Restore content (scaled)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.drawImage(tmp, 0, 0, tmp.width / dpr, tmp.height / dpr);
-    tmp.width = tmp.height = 0; // GC hint
+    tmp.width = tmp.height = 0;
   }
 
   function setStyle() {
@@ -278,15 +335,8 @@
     drawing = true;
     [lastX, lastY] = [x, y];
     setStyle();
-
     if (isRecording){
-      currentStroke = {
-        color: brushColor,
-        size: brushSize,
-        erasing,
-        points: [],
-        t0: performance.now()
-      };
+      currentStroke = { color: brushColor, size: brushSize, erasing, points: [], t0: performance.now() };
       currentStroke.points.push({ x, y, t: 0 });
     }
   }
@@ -297,11 +347,9 @@
     ctx.moveTo(lastX, lastY);
     ctx.lineTo(x, y);
     ctx.stroke();
-
     if (isRecording && currentStroke){
       currentStroke.points.push({ x, y, t: performance.now() - currentStroke.t0 });
     }
-
     [lastX, lastY] = [x, y];
   }
 
@@ -309,95 +357,58 @@
     if (!drawing) return;
     drawing = false;
     if (isRecording && currentStroke){
-      recording.strokes.push({
-        color: currentStroke.color,
-        size: currentStroke.size,
-        erasing: currentStroke.erasing,
-        points: currentStroke.points
-      });
+      recording.strokes.push({ color: currentStroke.color, size: currentStroke.size, erasing: currentStroke.erasing, points: currentStroke.points });
       currentStroke = null;
       setStatus(`Recorded strokes: ${recording.strokes.length}`);
     }
   }
 
-  // Mouse events
   canvas.addEventListener('mousedown', (e)=> startDraw(e.clientX, e.clientY));
   canvas.addEventListener('mousemove', (e)=> drawLine(e.clientX, e.clientY));
   ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, endDraw));
 
-  // Touch events
   canvas.addEventListener('touchstart', (e)=>{
-    if (e.touches.length > 0){
-      const t = e.touches[0];
-      startDraw(t.clientX, t.clientY);
-    }
+    if (e.touches.length > 0){ const t = e.touches[0]; startDraw(t.clientX, t.clientY); }
   }, {passive:true});
   canvas.addEventListener('touchmove', (e)=>{
-    if (e.touches.length > 0){
-      const t = e.touches[0];
-      drawLine(t.clientX, t.clientY);
-      e.preventDefault(); // prevent page scroll while drawing
-    }
+    if (e.touches.length > 0){ const t = e.touches[0]; drawLine(t.clientX, t.clientY); e.preventDefault(); }
   }, {passive:false});
   canvas.addEventListener('touchend', endDraw);
   canvas.addEventListener('touchcancel', endDraw);
 
-  // Controls
   colorInput.addEventListener('input', (e)=>{ brushColor = e.target.value; setStyle(); });
-  bgInput.addEventListener('input', (e)=>{
-    bgColor = e.target.value;
-    // Update CSS variable so the page background updates immediately
-    document.documentElement.style.setProperty('--bg', bgColor);
-  });
+  bgInput.addEventListener('input', (e)=>{ bgColor = e.target.value; document.documentElement.style.setProperty('--bg', bgColor); });
   sizeInput.addEventListener('input', (e)=>{ brushSize = parseInt(e.target.value,10); setStyle(); });
-  eraserBtn.addEventListener('click', ()=>{
-    erasing = !erasing;
-    eraserBtn.setAttribute('aria-pressed', String(erasing));
-    setStyle();
-  });
-  clearBtn.addEventListener('click', ()=>{
-    const {width, height} = canvas;
-    ctx.clearRect(0, 0, width, height);
-  });
+  eraserBtn.addEventListener('click', ()=>{ erasing = !erasing; eraserBtn.setAttribute('aria-pressed', String(erasing)); setStyle(); });
+  clearBtn.addEventListener('click', ()=>{ ctx.clearRect(0, 0, canvas.width, canvas.height); });
+  
   saveBtn.addEventListener('click', ()=>{
-    // Export a flattened PNG with the selected background color without mutating the main canvas
     const tmp = document.createElement('canvas');
     tmp.width = canvas.width; tmp.height = canvas.height;
     const tctx = tmp.getContext('2d');
-    // Fill background
     tctx.fillStyle = bgColor || '#ffffff';
     tctx.fillRect(0, 0, tmp.width, tmp.height);
-    // Draw current canvas on top
     tctx.drawImage(canvas, 0, 0);
-
     const link = document.createElement('a');
     link.download = 'ai-etch-sketch.png';
     link.href = tmp.toDataURL('image/png');
     link.click();
   });
 
-  // === Recording & Playback ===
   recordBtn.addEventListener('click', ()=>{
     isRecording = !isRecording;
-    if (isRecording){
-      recording = { version: 1, canvas: { w: window.innerWidth, h: window.innerHeight }, strokes: [] };
-      setStatus('Recording⏺');
-    } else {
-      setStatus(`Recording stopped. Strokes: ${recording.strokes.length}`);
-    }
+    if (isRecording){ recording = { version: 1, canvas: { w: window.innerWidth, h: window.innerHeight }, strokes: [] }; setStatus('Recording⏺'); } 
+    else { setStatus(`Recording stopped. Strokes: ${recording.strokes.length}`); }
     recordBtn.setAttribute('aria-pressed', String(isRecording));
     recordBtn.textContent = isRecording ? '⏹ Stop' : '⏺ Record';
   });
 
   downloadRec.addEventListener('click', ()=>{
-    const data = JSON.stringify(recording, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([JSON.stringify(recording, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = 'etch-sketch-strokes.json';
     a.click();
-    URL.revokeObjectURL(url);
   });
 
   loadBtn.addEventListener('click', ()=> loadInput.click());
@@ -411,39 +422,28 @@
         if (!obj || !Array.isArray(obj.strokes)) throw new Error('Invalid format');
         loadedRecording = obj;
         setStatus(`Loaded recording with ${obj.strokes.length} stroke(s).`);
-      }catch(err){
-        setStatus('Failed to load: ' + err.message);
-      }
+      }catch(err){ setStatus('Failed to load: ' + err.message); }
     };
     reader.readAsText(file);
-    // reset input so same file can be chosen again
     e.target.value = '';
   });
 
   function sleep(ms){ return new Promise(r=> setTimeout(r, ms)); }
 
   async function playRecording(rec){
-    if (!rec || !Array.isArray(rec.strokes) || rec.strokes.length === 0){
-      setStatus('Nothing to play.');
-      return;
-    }
-    // Clear canvas before playback
+    if (!rec || !Array.isArray(rec.strokes) || rec.strokes.length === 0){ setStatus('Nothing to play.'); return; }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     stopPlaybackFlag = false;
     setStatus('Playing▶');
 
     for (const s of rec.strokes){
       if (stopPlaybackFlag) break;
-      // Apply style for this stroke
       const prevColor = brushColor, prevSize = brushSize, prevErase = erasing;
       brushColor = s.color; brushSize = s.size; erasing = !!s.erasing; setStyle();
 
-      // Draw the stroke respecting timing between points
       const pts = s.points || [];
       if (pts.length < 2) { continue; }
 
-      // Move to first point
       let [x0, y0, t0] = [pts[0].x, pts[0].y, pts[0].t || 0];
       for (let i = 1; i < pts.length; i++){
         if (stopPlaybackFlag) break;
@@ -456,234 +456,85 @@
         ctx.stroke();
         x0 = p.x; y0 = p.y; t0 = p.t || 0;
       }
-
-      // restore user-selected style after each stroke
       brushColor = prevColor; brushSize = prevSize; erasing = prevErase; setStyle();
     }
-
     setStatus(stopPlaybackFlag ? 'Playback stopped.' : 'Playback finished.');
   }
 
-  playBtn.addEventListener('click', ()=>{
-    const rec = loadedRecording && loadedRecording.strokes?.length ? loadedRecording : recording;
-    playRecording(rec);
-  });
+  playBtn.addEventListener('click', ()=>{ const rec = loadedRecording && loadedRecording.strokes?.length ? loadedRecording : recording; playRecording(rec); });
   stopBtn.addEventListener('click', ()=>{ stopPlaybackFlag = true; });
 
-  // === AI Assist with Etch A Sketch Style ===
   aiAssistBtn.addEventListener('click', showModal);
   aiClose.addEventListener('click', hideModal);
   aiCancel.addEventListener('click', hideModal);
   aiModal.addEventListener('click', (e)=>{ if(e.target === aiModal) hideModal(); });
 
-  async function generateWithClaude(prompt, skill, key) {
+  async function generateDrawing(prompt, skill, key, useClaudeAPI, proxy) {
     const canvasW = Math.round(canvas.width / (window.devicePixelRatio||1));
     const canvasH = Math.round(canvas.height / (window.devicePixelRatio||1));
 
     const skillConfigs = {
-      child: {
-        strokes: '5-15',
-        style: 'very simple stick figures, basic circles and lines, wobbly hand movements like a 5-year-old',
-        size: '8-15',
-        complexity: 'minimal detail'
-      },
-      intermediate: {
-        strokes: '15-30',
-        style: 'cleaner lines, recognizable shapes, more controlled strokes',
-        size: '5-10',
-        complexity: 'moderate detail'
-      },
-      professional: {
-        strokes: '30-60',
-        style: 'smooth continuous lines, artistic shading with line density, professional technique',
-        size: '2-8',
-        complexity: 'high detail, artistic perspective'
-      }
-    };
-
-    const config = skillConfigs[skill] || skillConfigs.intermediate;
-
-    const systemPrompt = `You are an Etch A Sketch drawing assistant. Generate drawings as continuous, flowing strokes.
-
-CRITICAL: Return ONLY valid JSON. No markdown, no explanation, no backticks.
-
-JSON Schema:
-{
-  "version": 1,
-  "canvas": { "w": ${canvasW}, "h": ${canvasH} },
-  "strokes": [
-    {
-      "color": "hex color string",
-      "size": number,
-      "erasing": false,
-      "points": [{ "x": number, "y": number, "t": number }]
-      }
-  ]
-}
-
-Skill Level: ${skill}
-- Stroke count: ${config.strokes}
-- Line size: ${config.size}
-- Style: ${config.style}
-- Complexity: ${config.complexity}
-
-Rules:
-- Each stroke should have 3-50 points for smooth curves
-- t values increase gradually (0, 10, 20, 30... milliseconds)
-- Coordinates within bounds: x: 0-${canvasW}, y: 0-${canvasH}
-- Create continuous, flowing Etch A Sketch style strokes
-- Use appropriate colors and line weights for the skill level`;
-
-    const userPrompt = `Draw: ${prompt}
-
-Canvas: ${canvasW}x${canvasH}
-Skill: ${skill}
-
-Create an Etch A Sketch style drawing with ${config.strokes} strokes.
-Return ONLY the JSON object.`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 4096,
-        temperature: 0.3,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: userPrompt }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Claude API error ${response.status}: ${errorText.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const content = data.content[0].text;
-    return content;
-  }
-
-  async function generateWithOpenAI(prompt, skill, key) {
-    const canvasW = Math.round(canvas.width / (window.devicePixelRatio||1));
-    const canvasH = Math.round(canvas.height / (window.devicePixelRatio||1));
-
-    const skillConfigs = {
-      child: { strokes: '5-15', style: 'simple stick figures, wobbly lines', size: '8-15' },
+      child: { strokes: '5-15', style: 'simple stick figures, wobbly lines like a 5-year-old', size: '8-15' },
       intermediate: { strokes: '15-30', style: 'cleaner lines, recognizable shapes', size: '5-10' },
-      professional: { strokes: '30-60', style: 'smooth artistic lines, detailed', size: '2-8' }
+      professional: { strokes: '30-60', style: 'smooth artistic lines, detailed shading', size: '2-8' }
     };
-
     const config = skillConfigs[skill] || skillConfigs.intermediate;
 
-    const systemPrompt = `You generate Etch A Sketch style drawing recordings.
-Return ONLY valid JSON (no prose, no backticks).
-Schema: {
-  version: 1,
-  canvas: { w: number, h: number },
-  strokes: Array<{ color: string, size: number, erasing: boolean, points: Array<{ x: number, y: number, t: number }> }>
-}.
+    const systemPrompt = `You generate Etch A Sketch style drawings. Return ONLY valid JSON.
+Schema: {"version":1,"canvas":{"w":${canvasW},"h":${canvasH}},"strokes":[{"color":"#hex","size":number,"erasing":false,"points":[{"x":n,"y":n,"t":n}]}]}
 Skill: ${skill}. Strokes: ${config.strokes}. Style: ${config.style}. Line size: ${config.size}.
-Create continuous, flowing strokes. Each stroke 3-50 points. t increases (0,10,20...). Coords: 0-${canvasW}, 0-${canvasH}.`;
+Each stroke 3-50 points. t increases (0,10,20...). Coords within: 0-${canvasW}, 0-${canvasH}. Continuous flowing strokes.`;
 
     const userPrompt = `Canvas: ${canvasW}x${canvasH}. Draw: ${prompt}. Return ONLY JSON.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
-      })
-    });
+    let endpoint, headers, body;
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`OpenAI API error ${response.status}: ${errorText.slice(0, 200)}`);
+    if (useClaudeAPI) {
+      endpoint = proxy ? `${proxy}?provider=claude` : 'https://api.anthropic.com/v1/messages';
+      headers = { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
+      body = JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 4096, temperature: 0.3, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] });
+    } else {
+      endpoint = proxy ? `${proxy}?provider=openai` : 'https://api.openai.com/v1/chat/completions';
+      headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` };
+      body = JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.2, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }] });
     }
 
-    const data = await response.json();
-    return data.choices[0].message.content;
-  }
+    const response = await fetch(endpoint, { method: 'POST', headers, body });
+    if (!response.ok) throw new Error(`API error ${response.status}: ${await response.text().catch(()=> '')}`);
 
-  function parseDrawingJSON(text) {
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          return JSON.parse(jsonMatch[0]);
-        } catch (innerError) {
-          throw new Error('Could not parse JSON from AI response');
-        }
-      }
-      throw new Error('No valid JSON found in response');
+    const data = await response.json();
+    const content = useClaudeAPI ? data.content[0].text : data.choices[0].message.content;
+    
+    try { return JSON.parse(content); } 
+    catch (e) {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      throw new Error('No valid JSON in response');
     }
   }
 
   aiRun.addEventListener('click', async ()=>{
     try{
-      aiError.style.display = 'none'; 
-      aiError.textContent='';
+      aiError.style.display = 'none'; aiError.textContent='';
       
       const prompt = aiPrompt.value.trim();
-      if(!prompt){ 
-        showAlert('Please enter a drawing prompt.'); 
-        return; 
-      }
+      if(!prompt){ showAlert('Please enter a drawing prompt.'); return; }
+
+      const key = apiKey.value.trim();
+      if (!key) { showAlert('Please enter an API key.'); return; }
 
       const skill = skillLevel.value;
-      const provider = useClaude.checked ? 'claude' : 'openai';
-      
-      let key, text;
-      
-      if (provider === 'claude') {
-        key = claudeKey.value.trim();
-        if (!key) {
-          showAlert('Please enter your Claude API key. Click "Get Key" to get one from Anthropic.');
-          return;
-        }
-        // Save key to localStorage
-        localStorage.setItem('claudeApiKey', key);
-        
-        setStatus('Contacting Claude AI...');
-        text = await generateWithClaude(prompt, skill, key);
-      } else {
-        key = openaiKey.value.trim();
-        if (!key) {
-          showAlert('Please enter your OpenAI API key. Click "Get Key" to get one from OpenAI.');
-          return;
-        }
-        // Save key to localStorage
-        localStorage.setItem('openaiApiKey', key);
-        
-        setStatus('Contacting OpenAI...');
-        text = await generateWithOpenAI(prompt, skill, key);
-      }
+      const useClaudeAPI = useClaude.checked;
+      const proxy = proxyUrl.value.trim();
 
-      const obj = parseDrawingJSON(text);
+      localStorage.setItem('aiApiKey', key);
+      localStorage.setItem('proxyUrl', proxy);
+      localStorage.setItem('useClaude', useClaudeAPI);
       
-      if(!obj || !Array.isArray(obj.strokes)){
-        showAlert('The model did not return valid JSON. Showing raw response below.');
-        aiError.textContent = (aiError.textContent + "\n\n" + text).slice(0,4000);
-        aiError.style.whiteSpace = 'pre-wrap';
-        setStatus('AI returned non-JSON.');
-        return;
-      }
+      setStatus(`Contacting ${useClaudeAPI ? 'Claude' : 'OpenAI'} AI...`);
+      const obj = await generateDrawing(prompt, skill, key, useClaudeAPI, proxy);
+      
+      if(!obj || !Array.isArray(obj.strokes)){ showAlert('Invalid response from AI.'); return; }
       
       loadedRecording = obj;
       hideModal();
@@ -696,7 +547,6 @@ Create continuous, flowing strokes. Each stroke 3-50 points. t increases (0,10,2
     }
   });
 
-  // init
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
   setStyle();

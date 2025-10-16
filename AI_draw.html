@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simple Paint (Mouse & Touch + Record + AI)</title>
+<style>
+  :root { --bg: #0f172a; --panel: rgba(255,255,255,.9); --text:#0f172a; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  }
+  #canvas { position: fixed; inset: 0; display:block; }
+  .toolbar {
+    position: fixed; top: 12px; left: 12px; z-index: 10;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); color: var(--text);
+    padding: 10px 12px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    backdrop-filter: saturate(140%) blur(6px);
+  }
+  .toolbar label { font-size: 12px; opacity: .8; margin-right: 6px; }
+  .toolbar input[type="range"] { width: 140px; }
+  .btn {
+    appearance: none; border: 0; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    background: #111827; color: #fff; font-weight: 600; font-size: 13px; letter-spacing:.2px;
+  }
+  .btn.ghost { background: transparent; color: #111827; border:1px solid #11182733; }
+  .btn[aria-pressed="true"]{ outline: 2px solid #111827; outline-offset:2px; }
+  .swatch { width: 36px; height: 36px; border-radius: 10px; border: 1px solid #0001; overflow: hidden; display:inline-grid; place-items:center; }
+  .swatch input[type="color"]{ appearance: none; width: 100%; height: 100%; border:0; padding:0; background: none; cursor: pointer; }
+  .sizePreview{ width: 36px; height: 36px; display:grid; place-items:center; }
+  .dot{ border-radius: 999px; background: #111827; width: var(--size, 6px); height: var(--size, 6px); }
+  .hint { position: fixed; bottom: 12px; left: 12px; color: #fff8; font-size: 12px; }
+
+  /* Modal */
+  .modal-overlay{ position: fixed; inset:0; background: rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index: 20; }
+  .modal{ background: #fff; color:#0f172a; width: min(720px, 92vw); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow:hidden; }
+  .modal header{ padding:14px 16px; font-weight:700; background:#f1f5f9; display:flex; align-items:center; justify-content:space-between; }
+  .modal .body{ padding:16px; display:grid; gap:12px; }
+  .modal footer{ padding:12px 16px; display:flex; gap:10px; justify-content:flex-end; background:#f8fafc; }
+  .modal textarea{ width:100%; min-height:120px; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .modal input[type="password"], .modal input[type="text"]{ width:100%; padding:8px; border-radius:10px; border:1px solid #cbd5e1; font-family:inherit; }
+  .row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .help{ font-size:12px; color:#475569; }
+</style>
+</head>
+<body>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="toolbar" role="toolbar" aria-label="Paint controls">
+    <div class="swatch" title="Brush color">
+      <input id="color" type="color" value="#c0392b" aria-label="Brush color" />
+    </div>
+
+    <label for="bgColor">BG</label>
+    <div class="swatch" title="Background color">
+      <input id="bgColor" type="color" value="#0f172a" aria-label="Background color" />
+    </div>
+
+    <div class="sizePreview" title="Brush size preview"><div id="sizeDot" class="dot"></div></div>
+
+    <label for="size">Size</label>
+    <input id="size" type="range" min="1" max="60" value="5" step="1" aria-label="Brush size" />
+
+    <button id="eraser" class="btn ghost" aria-pressed="false" title="Eraser (toggle)">Eraser</button>
+    <button id="clear" class="btn ghost" title="Clear canvas">Clear</button>
+    <button id="save" class="btn" title="Download PNG">Save</button>
+
+    <!-- Recording controls -->
+    <button id="record" class="btn" aria-pressed="false" title="Record strokes">? Record</button>
+    <button id="downloadRec" class="btn ghost" title="Export recording JSON">Export</button>
+    <input id="loadInput" type="file" accept="application/json" hidden />
+    <button id="loadBtn" class="btn ghost" title="Import recording JSON">Import</button>
+    <button id="play" class="btn" title="Play recording">Play</button>
+    <button id="stop" class="btn ghost" title="Stop playback">Stop</button>
+
+    <!-- AI Assist -->
+    <button id="aiAssist" class="btn" title="AI drawing from prompt">AI Assist</button>
+
+    <span id="status" style="font-size:12px; opacity:.7; margin-left:6px;"></span>
+  </div>
+
+  <!-- AI Assist Modal -->
+  <div id="aiModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="modal">
+      <header>
+        <div id="aiTitle">AI Assist: describe what to draw</div>
+        <button id="aiClose" class="btn ghost" aria-label="Close">?</button>
+      </header>
+      <div class="body">
+        <label for="aiPrompt">Prompt</label>
+        <textarea id="aiPrompt" placeholder="e.g., Draw a snowman with three stacked circles, eyes, carrot nose, stick arms, and a hat."></textarea>
+        <div class="row">
+          <div>
+            <label for="aiKey">OpenAI API Key</label>
+            <input id="aiKey" type="password" placeholder="Enter your OpenAI API key" />
+            <div class="help">Your key is used from your browser to call OpenAI. For production, route through your own backend.</div>
+          </div>
+          <div>
+            <label for="aiModel">Model</label>
+            <input id="aiModel" type="text" value="gpt-4o-mini" />
+            <div class="help">Any chat model. "gpt-4o-mini" is fast & affordable.</div>
+          </div>
+        </div>
+        <div>
+          <label for="aiEndpoint">API Endpoint</label>
+          <input id="aiEndpoint" type="text" value="https://api.openai.com/v1/chat/completions" />
+          <div class="help">Change if using a proxy. Expects OpenAI-compatible Chat Completions.</div>
+        </div>
+        <div id="aiError" class="help" style="color:#b91c1c; display:none;"></div>
+      </div>
+      <footer>
+        <button id="aiCancel" class="btn ghost">Cancel</button>
+        <button id="aiRun" class="btn">Generate & Play</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="hint">Tip: Draw with mouse/touch. Use BG to change the page/canvas background. Use Record ? Export/Import ? Play to save and replay strokes with original timing, color, and size.</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // UI elements
+  const colorInput = document.getElementById('color');
+  const bgInput    = document.getElementById('bgColor');
+  const sizeInput  = document.getElementById('size');
+  const clearBtn   = document.getElementById('clear');
+  const saveBtn    = document.getElementById('save');
+  const eraserBtn  = document.getElementById('eraser');
+  const sizeDot    = document.getElementById('sizeDot');
+
+  // Recording & playback controls
+  const recordBtn   = document.getElementById('record');
+  const downloadRec = document.getElementById('downloadRec');
+  const loadBtn     = document.getElementById('loadBtn');
+  const loadInput   = document.getElementById('loadInput');
+  const playBtn     = document.getElementById('play');
+  const stopBtn     = document.getElementById('stop');
+  const statusEl    = document.getElementById('status');
+
+  // AI Assist elements
+  const aiAssistBtn = document.getElementById('aiAssist');
+  const aiModal  = document.getElementById('aiModal');
+  const aiClose  = document.getElementById('aiClose');
+  const aiCancel = document.getElementById('aiCancel');
+  const aiRun    = document.getElementById('aiRun');
+  const aiPrompt = document.getElementById('aiPrompt');
+  const aiKey    = document.getElementById('aiKey');
+  const aiModel  = document.getElementById('aiModel');
+  const aiEndpoint = document.getElementById('aiEndpoint');
+  const aiError  = document.getElementById('aiError');
+
+  // State
+  let drawing = false;
+  let lastX = 0, lastY = 0;
+  let brushColor = colorInput.value;
+  let brushSize = parseInt(sizeInput.value, 10);
+  let erasing = false;
+  // Background color state (CSS var --bg)
+  let bgColor = (getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#0f172a').trim();
+
+  // Recording state
+  let isRecording = false;
+  let recording = { version: 1, canvas: { w: 0, h: 0 }, strokes: [] };
+  let currentStroke = null;
+  // Playback state
+  let loadedRecording = null; // when importing, store here
+  let stopPlaybackFlag = false;
+
+  function setStatus(msg){ statusEl.textContent = msg || ''; }
+  function showModal(){ aiModal.style.display = 'flex'; aiError.style.display = 'none'; aiError.textContent=''; aiPrompt.focus(); }
+  function hideModal(){ aiModal.style.display = 'none'; }
+  function showAlert(msg){ aiError.textContent = msg; aiError.style.display = 'block'; }
+
+  // Improve sharpness on HiDPI
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    // Save current content
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width; tmp.height = canvas.height;
+    const tctx = tmp.getContext('2d');
+    tctx.drawImage(canvas, 0, 0);
+
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing ops
+    // Restore content (scaled)
+    ctx.drawImage(tmp, 0, 0, tmp.width / dpr, tmp.height / dpr);
+    tmp.width = tmp.height = 0; // GC hint
+  }
+
+  function setStyle() {
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = brushColor;
+    ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
+    sizeDot.style.setProperty('--size', Math.max(4, brushSize) + 'px');
+    sizeDot.style.background = erasing ? '#000' : brushColor;
+  }
+
+  function startDraw(x, y){
+    drawing = true;
+    [lastX, lastY] = [x, y];
+    setStyle();
+
+    if (isRecording){
+      currentStroke = {
+        color: brushColor,
+        size: brushSize,
+        erasing,
+        points: [],
+        t0: performance.now()
+      };
+      currentStroke.points.push({ x, y, t: 0 });
+    }
+  }
+
+  function drawLine(x, y){
+    if (!drawing) return;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    if (isRecording && currentStroke){
+      currentStroke.points.push({ x, y, t: performance.now() - currentStroke.t0 });
+    }
+
+    [lastX, lastY] = [x, y];
+  }
+
+  function endDraw(){
+    if (!drawing) return;
+    drawing = false;
+    if (isRecording && currentStroke){
+      recording.strokes.push({
+        color: currentStroke.color,
+        size: currentStroke.size,
+        erasing: currentStroke.erasing,
+        points: currentStroke.points
+      });
+      currentStroke = null;
+      setStatus(`Recorded strokes: ${recording.strokes.length}`);
+    }
+  }
+
+  // Mouse events
+  canvas.addEventListener('mousedown', (e)=> startDraw(e.clientX, e.clientY));
+  canvas.addEventListener('mousemove', (e)=> drawLine(e.clientX, e.clientY));
+  ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, endDraw));
+
+  // Touch events
+  canvas.addEventListener('touchstart', (e)=>{
+    if (e.touches.length > 0){
+      const t = e.touches[0];
+      startDraw(t.clientX, t.clientY);
+    }
+  }, {passive:true});
+  canvas.addEventListener('touchmove', (e)=>{
+    if (e.touches.length > 0){
+      const t = e.touches[0];
+      drawLine(t.clientX, t.clientY);
+      e.preventDefault(); // prevent page scroll while drawing
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', endDraw);
+  canvas.addEventListener('touchcancel', endDraw);
+
+  // Controls
+  colorInput.addEventListener('input', (e)=>{ brushColor = e.target.value; setStyle(); });
+  bgInput.addEventListener('input', (e)=>{
+    bgColor = e.target.value;
+    // Update CSS variable so the page background updates immediately
+    document.documentElement.style.setProperty('--bg', bgColor);
+  });
+  sizeInput.addEventListener('input', (e)=>{ brushSize = parseInt(e.target.value,10); setStyle(); });
+  eraserBtn.addEventListener('click', ()=>{
+    erasing = !erasing;
+    eraserBtn.setAttribute('aria-pressed', String(erasing));
+    setStyle();
+  });
+  clearBtn.addEventListener('click', ()=>{
+    const {width, height} = canvas;
+    ctx.clearRect(0, 0, width, height);
+  });
+  saveBtn.addEventListener('click', ()=>{
+    // Export a flattened PNG with the selected background color without mutating the main canvas
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width; tmp.height = canvas.height;
+    const tctx = tmp.getContext('2d');
+    // Fill background
+    tctx.fillStyle = bgColor || '#ffffff';
+    tctx.fillRect(0, 0, tmp.width, tmp.height);
+    // Draw current canvas on top
+    tctx.drawImage(canvas, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = 'drawing.png';
+    link.href = tmp.toDataURL('image/png');
+    link.click();
+  });
+
+  // === Recording & Playback ===
+  recordBtn.addEventListener('click', ()=>{
+    isRecording = !isRecording;
+    if (isRecording){
+      recording = { version: 1, canvas: { w: window.innerWidth, h: window.innerHeight }, strokes: [] };
+      setStatus('Recording�');
+    } else {
+      setStatus(`Recording stopped. Strokes: ${recording.strokes.length}`);
+    }
+    recordBtn.setAttribute('aria-pressed', String(isRecording));
+    recordBtn.textContent = isRecording ? '� Stop' : '? Record';
+  });
+
+  downloadRec.addEventListener('click', ()=>{
+    const data = JSON.stringify(recording, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'strokes.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  loadBtn.addEventListener('click', ()=> loadInput.click());
+  loadInput.addEventListener('change', (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const obj = JSON.parse(String(reader.result));
+        if (!obj || !Array.isArray(obj.strokes)) throw new Error('Invalid format');
+        loadedRecording = obj;
+        setStatus(`Loaded recording with ${obj.strokes.length} stroke(s).`);
+      }catch(err){
+        setStatus('Failed to load: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    // reset input so same file can be chosen again
+    e.target.value = '';
+  });
+
+  function sleep(ms){ return new Promise(r=> setTimeout(r, ms)); }
+
+  async function playRecording(rec){
+    if (!rec || !Array.isArray(rec.strokes) || rec.strokes.length === 0){
+      setStatus('Nothing to play.');
+      return;
+    }
+    // Clear canvas before playback
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    stopPlaybackFlag = false;
+    setStatus('Playing�');
+
+    for (const s of rec.strokes){
+      if (stopPlaybackFlag) break;
+      // Apply style for this stroke
+      const prevColor = brushColor, prevSize = brushSize, prevErase = erasing;
+      brushColor = s.color; brushSize = s.size; erasing = !!s.erasing; setStyle();
+
+      // Draw the stroke respecting timing between points
+      const pts = s.points || [];
+      if (pts.length < 2) { continue; }
+
+      // Move to first point
+      let [x0, y0, t0] = [pts[0].x, pts[0].y, pts[0].t || 0];
+      for (let i = 1; i < pts.length; i++){
+        if (stopPlaybackFlag) break;
+        const p = pts[i];
+        const wait = Math.max(0, (p.t || 0) - (pts[i-1].t || 0));
+        if (wait) await sleep(wait);
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        x0 = p.x; y0 = p.y; t0 = p.t || 0;
+      }
+
+      // restore user-selected style after each stroke
+      brushColor = prevColor; brushSize = prevSize; erasing = prevErase; setStyle();
+    }
+
+    setStatus(stopPlaybackFlag ? 'Playback stopped.' : 'Playback finished.');
+  }
+
+  playBtn.addEventListener('click', ()=>{
+    const rec = loadedRecording && loadedRecording.strokes?.length ? loadedRecording : recording;
+    playRecording(rec);
+  });
+  stopBtn.addEventListener('click', ()=>{ stopPlaybackFlag = true; });
+
+  // === AI Assist ===
+  aiAssistBtn.addEventListener('click', showModal);
+  aiClose.addEventListener('click', hideModal);
+  aiCancel.addEventListener('click', hideModal);
+  aiModal.addEventListener('click', (e)=>{ if(e.target === aiModal) hideModal(); });
+
+  async function aiGenerateJSON(prompt){
+    const key = aiKey.value.trim();
+    const endpoint = aiEndpoint.value.trim() || 'https://api.openai.com/v1/chat/completions';
+    const model = (aiModel.value || 'gpt-4o-mini').trim();
+    if(!key){ throw new Error('Please paste your OpenAI API key.'); }
+    const canvasW = Math.round(canvas.width / (window.devicePixelRatio||1));
+    const canvasH = Math.round(canvas.height / (window.devicePixelRatio||1));
+
+    const system = `You generate drawing recordings for a simple paint app.
+Return ONLY valid JSON (no prose, no backticks).
+Schema: {
+  version: 1,
+  canvas: { w: number, h: number },
+  strokes: Array<{ color: string, size: number, erasing: boolean, points: Array<{ x: number, y: number, t: number }> } >
+}.
+Rules:
+- Use coordinates within the provided canvas size.
+- t is milliseconds since the start of each stroke; start with 0 and increase.
+- Keep strokes moderate in count (<= 60) and points per stroke reasonable (<= 300).
+- Prefer simple shapes and smooth timing.`;
+
+    const user = `Canvas size: ${canvasW}x${canvasH}. Task: ${prompt}. Return ONLY JSON matching the schema. If impossible, reply with a short explanation (no JSON).`;
+
+    const body = {
+      model,
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
+      ]
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      const txt = await res.text().catch(()=> '');
+      throw new Error(`API error ${res.status}: ${txt.slice(0,200)}`);
+    }
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content ?? '';
+    return content;
+  }
+
+  aiRun.addEventListener('click', async ()=>{
+    try{
+      aiError.style.display = 'none'; aiError.textContent='';
+      const prompt = aiPrompt.value.trim();
+      if(!prompt){ showAlert('Please enter a prompt.'); return; }
+      setStatus('Contacting AI�');
+      const text = await aiGenerateJSON(prompt);
+      // Try parse JSON strictly
+      let obj;
+      try{ obj = JSON.parse(text); }
+      catch(parseErr){
+        // Maybe the model returned code fences; try to extract
+        const m = text.match(/\{[\s\S]*\}/);
+        if(m){
+          try{ obj = JSON.parse(m[0]); }
+          catch(inner){ obj = null; }
+        }
+      }
+      if(!obj || !Array.isArray(obj.strokes)){
+        showAlert('The model did not return valid JSON. Showing raw response below.');
+        aiError.textContent = (aiError.textContent + "\n\n" + text).slice(0,4000);
+        aiError.style.whiteSpace = 'pre-wrap';
+        setStatus('AI returned non-JSON.');
+        return;
+      }
+      loadedRecording = obj;
+      hideModal();
+      setStatus(`AI loaded ${obj.strokes.length} stroke(s). Playing�`);
+      await playRecording(obj);
+    }catch(err){
+      showAlert(String(err.message || err));
+      setStatus('AI Assist error.');
+    }
+  });
+
+  // init
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  setStyle();
+})();
+</script>
+</body>
+</html>
